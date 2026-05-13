@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public interface BaseService<M extends BaseMapper<T>, T> extends IService<T> {
     /**
      * 根据ID列表查询
      */
-    default List<T> getByIds(Collection<?> ids) {
+    default List<T> getByIds(Collection<? extends Serializable> ids) {
         return getBaseMapper().selectBatchIds(ids);
     }
 
