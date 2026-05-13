@@ -30,7 +30,7 @@ public class EncryptedTypeHandler extends BaseTypeHandler<String> implements Con
             String encrypted = encrypt(parameter);
             ps.setString(i, encrypted);
         } catch (Exception e) {
-            throw new SQLException("加密失败", e);
+            throw new SQLException("Encryption failed", e);
         }
     }
 
@@ -74,7 +74,7 @@ public class EncryptedTypeHandler extends BaseTypeHandler<String> implements Con
             byte[] decrypted = cipher.doFinal(hexToBytes(encrypted));
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new RuntimeException("解密失败", e);
+            throw new RuntimeException("Decryption failed", e);
         }
     }
 

@@ -51,7 +51,7 @@ public class TenantInterceptor implements Interceptor {
 
             MappedStatement newMs = newMappedStatement(ms, new BoundSqlSqlSource(newBoundSql));
             args[0] = newMs;
-            log.debug("SQL添加租户条件: tenantId={}", tenantId);
+            log.debug("SQL added tenant condition: tenantId={}", tenantId);
         }
 
         return invocation.proceed();
@@ -88,7 +88,7 @@ public class TenantInterceptor implements Interceptor {
             Object additionalParameters = additionalParametersField.get(source);
             additionalParametersField.set(target, additionalParameters);
         } catch (Exception e) {
-            log.warn("复制额外参数失败", e);
+            log.warn("Failed to copy additional parameters", e);
         }
     }
 

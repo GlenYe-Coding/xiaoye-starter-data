@@ -74,15 +74,15 @@ public class SlowSqlInterceptor implements Interceptor {
         String methodName = ms.getId();
 
         if (executionTime >= alertThreshold) {
-            log.error("⚠️ [慢SQL告警] 执行时间: {}ms, 方法: {}, SQL: {}, 参数: {}",
+            log.error("[SLOW_SQL_ALERT] executionTime: {}ms, method: {}, SQL: {}, params: {}",
                     executionTime, methodName, sql, formatParams(param));
         } else {
-            log.warn("⚡ [慢SQL记录] 执行时间: {}ms, 方法: {}, SQL: {}, 参数: {}",
+            log.warn("[SLOW_SQL_LOG] executionTime: {}ms, method: {}, SQL: {}, params: {}",
                     executionTime, methodName, sql, formatParams(param));
         }
 
         if (exception != null) {
-            log.error("慢SQL执行异常: method={}, time={}ms, exception={}",
+            log.error("Slow SQL execution exception: method={}, time={}ms, exception={}",
                     methodName, executionTime, exception.getMessage());
         }
     }
@@ -117,7 +117,7 @@ public class SlowSqlInterceptor implements Interceptor {
             this.alertThreshold = Long.parseLong(alertThreshold);
         }
 
-        log.info("慢SQL监控已启用: 慢SQL阈值={}ms, 告警阈值={}ms", slowSqlThreshold, alertThreshold);
+        log.info("Slow SQL monitoring enabled: slowSqlThreshold={}ms, alertThreshold={}ms", slowSqlThreshold, alertThreshold);
     }
 
     public void setSlowSqlThreshold(long slowSqlThreshold) {
