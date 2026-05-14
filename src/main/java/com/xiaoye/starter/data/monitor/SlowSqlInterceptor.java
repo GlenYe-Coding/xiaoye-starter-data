@@ -27,17 +27,16 @@ import java.util.Properties;
 public class SlowSqlInterceptor implements Interceptor {
 
     /**
-     * 默认慢SQL阈值（毫秒）
+     * 慢SQL阈值（毫秒）
+     * 默认值由 SlowSqlProperties 配置，可通过 setter 方法或 setProperties 覆盖
      */
-    private static final long DEFAULT_SLOW_SQL_THRESHOLD = 500;
+    private long slowSqlThreshold = 500;
 
     /**
-     * 默认告警阈值（毫秒）
+     * 告警阈值（毫秒）
+     * 默认值由 SlowSqlProperties 配置，可通过 setter 方法或 setProperties 覆盖
      */
-    private static final long DEFAULT_ALERT_THRESHOLD = 3000;
-
-    private long slowSqlThreshold = DEFAULT_SLOW_SQL_THRESHOLD;
-    private long alertThreshold = DEFAULT_ALERT_THRESHOLD;
+    private long alertThreshold = 3000;
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {

@@ -2,6 +2,8 @@ package com.xiaoye.starter.data.page;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xiaoye.common.core.response.PageResult;
+import com.xiaoye.starter.data.autoconfigure.PageProperties;
 
 import java.util.List;
 
@@ -13,17 +15,49 @@ import java.util.List;
  */
 public class PageHelper {
 
+    private static volatile PageProperties properties;
+
+    /**
+     * 默认每页大小（毫秒）
+     * 可通过 PageProperties 配置覆盖
+     */
     private static final long DEFAULT_PAGE_SIZE = 10L;
+
+    /**
+     * 最大每页大小（防止恶意请求）
+     * 可通过 PageProperties 配置覆盖
+     */
     private static final long MAX_PAGE_SIZE = 100L;
 
     private PageHelper() {
     }
 
     /**
+     * 设置分页配置（由自动配置调用）
+     */
+    public static void setProperties(PageProperties pageProperties) {
+        properties = pageProperties;
+    }
+
+    /**
+     * 获取默认每页大小
+     */
+    private static long getDefaultPageSize() {
+        return properties != null ? properties.getDefaultPageSize() : DEFAULT_PAGE_SIZE;
+    }
+
+    /**
+     * 获取最大每页大小
+     */
+    private static long getMaxPageSize() {
+        return properties != null ? properties.getMaxPageSize() : MAX_PAGE_SIZE;
+    }
+
+    /**
      * 创建分页请求
      */
     public static <T> Page<T> of(long pageNum, long pageSize) {
-        long size = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
+        long size = Math.min(Math.max(pageSize, 1), getMaxPageSize());
         long current = Math.max(pageNum, 1);
         return new Page<>(current, size);
     }
@@ -32,7 +66,7 @@ public class PageHelper {
      * 创建分页请求（使用默认页大小）
      */
     public static <T> Page<T> of(long pageNum) {
-        return of(pageNum, DEFAULT_PAGE_SIZE);
+        return of(pageNum, getDefaultPageSize());
     }
 
     /**
@@ -53,6 +87,6 @@ public class PageHelper {
      * 计算分页偏移量
      */
     public static long getOffset(long pageNum, long pageSize) {
-        return (Math.max(pageNum, 1) - 1) * Math.min(pageSize, MAX_PAGE_SIZE);
+        return (Math.max(pageNum, 1) - 1) * Math.min(pageSize, getMaxPageSize());
     }
 }
