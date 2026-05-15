@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
+import com.xiaoye.starter.data.metrics.DataMetrics;
 import com.xiaoye.starter.data.monitor.SlowSqlInterceptor;
 import com.xiaoye.starter.data.page.PageHelper;
 import lombok.RequiredArgsConstructor;
@@ -69,5 +70,13 @@ public class DataAutoConfiguration {
         interceptor.setSlowSqlThreshold(properties.getSlowSqlThreshold());
         interceptor.setAlertThreshold(properties.getAlertThreshold());
         return interceptor;
+    }
+
+    // ==================== Metrics ====================
+
+    @Bean
+    @ConditionalOnMissingBean
+    public DataMetrics dataMetrics() {
+        return new DataMetrics(null);
     }
 }
