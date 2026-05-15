@@ -14,6 +14,8 @@ import org.apache.ibatis.session.RowBounds;
 
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -173,32 +175,76 @@ public class TenantInterceptor implements Interceptor {
     private String addTenantCondition(String sql, Long tenantId) {
         String upperSql = sql.trim().toUpperCase();
 
-        // INSERT 语句不添加条件，但需要在值中添加 tenant_id
         if (upperSql.startsWith("INSERT")) {
-            return sql;
+            // INSERT语句需要在值中添加tenant_id
+            return injectTenantIdToInsert(sql, tenantId);
         }
 
         if (upperSql.startsWith("SELECT")) {
             // 检查是否已经包含租户字段
             String upperColumn = tenantColumn.toUpperCase();
             if (!upperSql.contains(upperColumn)) {
-                if (upperSql.contains("WHERE")) {
-                    return sql + " AND " + tenantColumn + " = " + tenantId;
-                } else if (upperSql.contains("GROUP BY")) {
-                    int groupByIndex = upperSql.indexOf("GROUP BY");
-                    return sql.substring(0, groupByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(groupByIndex);
-                } else if (upperSql.contains("ORDER BY")) {
-                    int orderByIndex = upperSql.indexOf("ORDER BY");
-                    return sql.substring(0, orderByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(orderByIndex);
-                } else if (upperSql.contains("LIMIT")) {
-                    int limitIndex = upperSql.indexOf("LIMIT");
-                    return sql.substring(0, limitIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(limitIndex);
-                } else {
-                    return sql + " WHERE " + tenantColumn + " = " + tenantId;
-                }
+                return addTenantConditionToSelect(sql, tenantId);
             }
         }
 
+        return sql;
+    }
+
+    /**
+     * 为SELECT语句添加租户条件
+     */
+    private String addTenantConditionToSelect(String sql, Long tenantId) {
+        String upperSql = sql.trim().toUpperCase();
+        if (upperSql.contains("WHERE")) {
+            return sql + " AND " + tenantColumn + " = " + tenantId;
+        } else if (upperSql.contains("GROUP BY")) {
+            int groupByIndex = upperSql.indexOf("GROUP BY");
+            return sql.substring(0, groupByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(groupByIndex);
+        } else if (upperSql.contains("ORDER BY")) {
+            int orderByIndex = upperSql.indexOf("ORDER BY");
+            return sql.substring(0, orderByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(orderByIndex);
+        } else if (upperSql.contains("LIMIT")) {
+            int limitIndex = upperSql.indexOf("LIMIT");
+            return sql.substring(0, limitIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(limitIndex);
+        } else {
+            return sql + " WHERE " + tenantColumn + " = " + tenantId;
+        }
+    }
+
+    /**
+     * 为INSERT语句注入tenant_id字段
+     * <p>
+     * 示例: INSERT INTO order (id, amount) VALUES (1, 100)
+     * 变为: INSERT INTO order (id, amount, tenant_id) VALUES (1, 100, 1001)
+     * </p>
+     */
+    private String injectTenantIdToInsert(String sql, Long tenantId) {
+        // 匹配: INSERT INTO table_name (col1, col2) VALUES (val1, val2)
+        Pattern pattern = Pattern.compile(
+            "^\\s*INSERT\\s+INTO\\s+(\\w+)\\s*\\(([^)]+)\\)\\s*VALUES\\s*\\(([^)]+)\\)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(sql);
+
+        if (matcher.find()) {
+            String table = matcher.group(1);
+            String columns = matcher.group(2);
+            String values = matcher.group(3);
+
+            // 检查是否已经包含租户列
+            String upperColumns = columns.toUpperCase();
+            if (upperColumns.contains(tenantColumn.toUpperCase())) {
+                return sql; // 已经有tenant_id列，不处理
+            }
+
+            // 注入tenant_id
+            return String.format("INSERT INTO %s (%s, %s) VALUES (%s, %d)",
+                table, columns, tenantColumn, values, tenantId);
+        }
+
+        // 无法解析的INSERT语句，返回原SQL并记录警告
+        logger.warn("无法解析INSERT语句添加租户隔离: {}", sql);
         return sql;
     }
 
