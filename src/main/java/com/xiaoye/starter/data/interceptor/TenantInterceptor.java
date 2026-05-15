@@ -125,6 +125,8 @@ public class TenantInterceptor implements Interceptor {
             BoundSql newBoundSql = new BoundSql(ms.getConfiguration(), modifiedSql,
                 boundSql.getParameterMappings(), param);
             copyAdditionalParameters(boundSql, newBoundSql);
+            // 设置 _tenantId 参数以防止 SQL 注入
+            newBoundSql.setAdditionalParameter("_tenantId", tenantId);
 
             MappedStatement newMs = newMappedStatement(ms, new BoundSqlSqlSource(newBoundSql));
             args[0] = newMs;
@@ -193,22 +195,25 @@ public class TenantInterceptor implements Interceptor {
 
     /**
      * 为SELECT语句添加租户条件
+     * <p>
+     * 使用参数化查询防止SQL注入
+     * </p>
      */
     private String addTenantConditionToSelect(String sql, Long tenantId) {
         String upperSql = sql.trim().toUpperCase();
         if (upperSql.contains("WHERE")) {
-            return sql + " AND " + tenantColumn + " = " + tenantId;
+            return sql + " AND " + tenantColumn + " = #{_tenantId}";
         } else if (upperSql.contains("GROUP BY")) {
             int groupByIndex = upperSql.indexOf("GROUP BY");
-            return sql.substring(0, groupByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(groupByIndex);
+            return sql.substring(0, groupByIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(groupByIndex);
         } else if (upperSql.contains("ORDER BY")) {
             int orderByIndex = upperSql.indexOf("ORDER BY");
-            return sql.substring(0, orderByIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(orderByIndex);
+            return sql.substring(0, orderByIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(orderByIndex);
         } else if (upperSql.contains("LIMIT")) {
             int limitIndex = upperSql.indexOf("LIMIT");
-            return sql.substring(0, limitIndex) + " WHERE " + tenantColumn + " = " + tenantId + " " + sql.substring(limitIndex);
+            return sql.substring(0, limitIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(limitIndex);
         } else {
-            return sql + " WHERE " + tenantColumn + " = " + tenantId;
+            return sql + " WHERE " + tenantColumn + " = #{_tenantId}";
         }
     }
 
@@ -216,7 +221,10 @@ public class TenantInterceptor implements Interceptor {
      * 为INSERT语句注入tenant_id字段
      * <p>
      * 示例: INSERT INTO order (id, amount) VALUES (1, 100)
-     * 变为: INSERT INTO order (id, amount, tenant_id) VALUES (1, 100, 1001)
+     * 变为: INSERT INTO order (id, amount, tenant_id) VALUES (1, 100, #{_tenantId})
+     * </p>
+     * <p>
+     * 使用参数化查询防止SQL注入
      * </p>
      */
     private String injectTenantIdToInsert(String sql, Long tenantId) {
@@ -238,9 +246,9 @@ public class TenantInterceptor implements Interceptor {
                 return sql; // 已经有tenant_id列，不处理
             }
 
-            // 注入tenant_id
-            return String.format("INSERT INTO %s (%s, %s) VALUES (%s, %d)",
-                table, columns, tenantColumn, values, tenantId);
+            // 注入tenant_id（使用参数化占位符）
+            return String.format("INSERT INTO %s (%s, %s) VALUES (%s, #{_tenantId})",
+                table, columns, tenantColumn, values);
         }
 
         // 无法解析的INSERT语句，返回原SQL并记录警告

@@ -1,5 +1,6 @@
 package com.xiaoye.starter.data.core;
 
+import com.xiaoye.common.core.enums.ErrorCode;
 import lombok.Getter;
 
 /**
@@ -13,7 +14,9 @@ import lombok.Getter;
  *
  * @author xiaoye
  * @since 1.0.0
+ * @deprecated 请使用 {@link ErrorCode}，该类仅用于向后兼容，将在后续版本中移除
  */
+@Deprecated
 @Getter
 public enum DataErrorCode {
 
@@ -65,5 +68,47 @@ public enum DataErrorCode {
             }
         }
         return null;
+    }
+
+    /**
+     * 转换为统一的 ErrorCode
+     * <p>
+     * 用于向后兼容，将 DataErrorCode 映射到 ErrorCode
+     * </p>
+     *
+     * @return 对应的 ErrorCode，如果无映射则返回 null
+     */
+    public ErrorCode toErrorCode() {
+        switch (this) {
+            case SQL_EXECUTION_FAILED:
+            case SQL_SYNTAX_ERROR:
+                return ErrorCode.DATABASE_ERROR;
+            case DUPLICATE_DATA:
+                return ErrorCode.DUPLICATE_DATA;
+            case DATA_NOT_FOUND:
+                return ErrorCode.DATA_NOT_FOUND;
+            case DATA_CONSTRAINT_VIOLATION:
+                return ErrorCode.DATABASE_ERROR;
+            case PAGINATION_PARAM_ERROR:
+                return ErrorCode.PARAM_ERROR;
+            case TOTAL_COUNT_FAILED:
+            case QUERY_TIME_OUT:
+                return ErrorCode.TIMEOUT_ERROR;
+            case TRANSACTION_FAILED:
+            case TRANSACTION_TIMEOUT:
+            case TRANSACTION_ROLLBACK:
+                return ErrorCode.SYSTEM_ERROR;
+            case OPTIMISTIC_LOCK_CONFLICT:
+                return ErrorCode.CONFLICT;
+            case CONNECTION_POOL_EXHAUSTED:
+            case CONNECTION_TIMEOUT:
+            case DATABASE_UNAVAILABLE:
+                return ErrorCode.DATABASE_ERROR;
+            case SLOW_QUERY:
+            case LARGE_RESULT_SET:
+                return ErrorCode.SYSTEM_BUSY;
+            default:
+                return null;
+        }
     }
 }
