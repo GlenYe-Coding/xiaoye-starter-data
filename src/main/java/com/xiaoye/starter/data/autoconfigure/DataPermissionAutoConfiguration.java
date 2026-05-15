@@ -1,6 +1,8 @@
 package com.xiaoye.starter.data.autoconfigure;
 
 import com.xiaoye.starter.data.permission.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -9,6 +11,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
@@ -79,20 +84,37 @@ public class DataPermissionAutoConfiguration {
     }
 
     /**
-     * 数据权限上下文清理监听器
+     * 数据权限上下文清理拦截器
+     * <p>
+     * 在请求完成后清理 ThreadLocal，避免内存泄漏
+     * </p>
      */
     @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     @ConditionalOnProperty(prefix = "xiaoye.data.data-permission", name = "enabled", havingValue = "true", matchIfMissing = false)
-    public DataPermissionContextCleaner dataPermissionContextCleaner() {
-        return new DataPermissionContextCleaner();
+    public HandlerInterceptor dataPermissionContextCleanerInterceptor() {
+        return new DataPermissionContextCleanerInterceptor();
     }
 
     /**
-     * 数据权限上下文清理器
+     * 数据权限上下文清理拦截器实现
+     * <p>
+     * 在请求完成时清理 ThreadLocal，防止内存泄漏和权限泄露
+     * </p>
      */
     @Slf4j
-    public static class DataPermissionContextCleaner {
-        // 使用 @PreDestroy 或请求结束监听器清理 ThreadLocal
-        // 具体实现可配合 Spring 的 RequestContextListener
+    public static class DataPermissionContextCleanerInterceptor implements HandlerInterceptor {
+
+        @Override
+        public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
+                                   Object handler, Exception ex) {
+            try {
+                DataPermissionContext.clear();
+                log.debug("DataPermissionContext cleared for request: {}",
+                    request.getRequestURI());
+            } catch (Exception e) {
+                log.error("Failed to clear DataPermissionContext", e);
+            }
+        }
     }
 }
