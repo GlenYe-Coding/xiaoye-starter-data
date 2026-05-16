@@ -3,8 +3,8 @@ package com.xiaoye.starter.data.autoconfigure;
 import com.xiaoye.starter.data.permission.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -15,7 +15,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,14 +32,18 @@ import java.util.List;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 @AutoConfiguration
 @ConditionalOnClass(name = "com.xiaoye.starter.data.permission.DataPermission")
 @EnableConfigurationProperties(DataProperties.class)
-@RequiredArgsConstructor
 public class DataPermissionAutoConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(DataPermissionAutoConfiguration.class);
+
     private final DataProperties dataProperties;
+
+    public DataPermissionAutoConfiguration(DataProperties dataProperties) {
+        this.dataProperties = dataProperties;
+    }
 
     /**
      * 初始化数据权限模块
@@ -102,8 +106,9 @@ public class DataPermissionAutoConfiguration {
      * 在请求完成时清理 ThreadLocal，防止内存泄漏和权限泄露
      * </p>
      */
-    @Slf4j
     public static class DataPermissionContextCleanerInterceptor implements HandlerInterceptor {
+
+        private static final Logger log = LoggerFactory.getLogger(DataPermissionContextCleanerInterceptor.class);
 
         @Override
         public void afterCompletion(HttpServletRequest request, HttpServletResponse response,

@@ -1,6 +1,5 @@
 package com.xiaoye.starter.data.autoconfigure;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -9,7 +8,6 @@ import jakarta.validation.constraints.Min;
 /**
  * 慢SQL监控配置属性
  */
-@Data
 @Validated
 @ConfigurationProperties(prefix = "xiaoye.data.slow-sql")
 public class SlowSqlProperties {
@@ -30,4 +28,12 @@ public class SlowSqlProperties {
      */
     @Min(value = 0, message = "告警阈值不能为负数")
     private long alertThreshold = 3000;
+
+    // Getters and Setters
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public long getSlowSqlThreshold() { return slowSqlThreshold; }
+    public void setSlowSqlThreshold(long slowSqlThreshold) { this.slowSqlThreshold = slowSqlThreshold; }
+    public long getAlertThreshold() { return alertThreshold; }
+    public void setAlertThreshold(long alertThreshold) { this.alertThreshold = alertThreshold; }
 }

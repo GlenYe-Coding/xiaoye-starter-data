@@ -1,6 +1,5 @@
 package com.xiaoye.starter.data.autoconfigure;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -16,7 +15,6 @@ import jakarta.validation.constraints.NotBlank;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Data
 @Validated
 @ConfigurationProperties(prefix = "xiaoye.data")
 public class DataProperties {
@@ -33,7 +31,6 @@ public class DataProperties {
      */
     private PageProperties page = new PageProperties();
 
-    @Data
     public static class PageProperties {
         /**
          * 默认每页条数
@@ -90,7 +87,6 @@ public class DataProperties {
      */
     private SlowSqlProperties slowSql = new SlowSqlProperties();
 
-    @Data
     public static class SlowSqlProperties {
         /**
          * 是否启用慢SQL监控
@@ -139,7 +135,6 @@ public class DataProperties {
      */
     private TenantProperties tenant = new TenantProperties();
 
-    @Data
     public static class TenantProperties {
         /**
          * 是否启用多租户
@@ -185,7 +180,6 @@ public class DataProperties {
      */
     private AutoFillProperties autoFill = new AutoFillProperties();
 
-    @Data
     public static class AutoFillProperties {
         /**
          * 是否启用自动填充
@@ -260,33 +254,47 @@ public class DataProperties {
      */
     private DataPermissionProperties dataPermission = new DataPermissionProperties();
 
-    @Data
+    public DataPermissionProperties getDataPermission() { return dataPermission; }
+    public void setDataPermission(DataPermissionProperties dataPermission) { this.dataPermission = dataPermission; }
+
     public static class DataPermissionProperties {
         /**
          * 是否启用数据权限
          */
         private boolean enabled = false;
-
+        
         /**
          * 数据权限字段
          */
         @NotBlank(message = "Data permission field cannot be blank")
         private String dataPermissionField = "org_id";
-
+        
         /**
          * 权限过滤方式：AUTO, MANUAL
          */
         private String filterMode = "AUTO";
-
+        
         /**
          * 是否启用行级权限
          */
         private boolean rowPermissionEnabled = false;
-
+        
         /**
          * 行级权限字段
          */
         private String rowPermissionField = "";
+        
+        // Getters and Setters
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getDataPermissionField() { return dataPermissionField; }
+        public void setDataPermissionField(String dataPermissionField) { this.dataPermissionField = dataPermissionField; }
+        public String getFilterMode() { return filterMode; }
+        public void setFilterMode(String filterMode) { this.filterMode = filterMode; }
+        public boolean isRowPermissionEnabled() { return rowPermissionEnabled; }
+        public void setRowPermissionEnabled(boolean rowPermissionEnabled) { this.rowPermissionEnabled = rowPermissionEnabled; }
+        public String getRowPermissionField() { return rowPermissionField; }
+        public void setRowPermissionField(String rowPermissionField) { this.rowPermissionField = rowPermissionField; }
     }
 
     // ==================== 数据加密配置 ====================
@@ -296,7 +304,6 @@ public class DataProperties {
      */
     private EncryptionProperties encryption = new EncryptionProperties();
 
-    @Data
     public static class EncryptionProperties {
         /**
          * 是否启用数据加密
@@ -327,7 +334,6 @@ public class DataProperties {
      */
     private CrudProperties crud = new CrudProperties();
 
-    @Data
     public static class CrudProperties {
         /**
          * 是否启用逻辑删除

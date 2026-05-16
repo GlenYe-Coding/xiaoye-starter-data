@@ -3,7 +3,9 @@ package com.xiaoye.starter.data.metrics;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,9 +24,10 @@ import java.util.concurrent.TimeUnit;
  * xiaoye.data.tenant.intercept - 租户拦截
  * </pre>
  */
-@Slf4j
 @Component
 public class DataMetrics {
+
+    private static final Logger log = LoggerFactory.getLogger(DataMetrics.class);
 
     private final MeterRegistry meterRegistry;
 

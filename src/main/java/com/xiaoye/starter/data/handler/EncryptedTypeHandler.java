@@ -2,10 +2,10 @@ package com.xiaoye.starter.data.handler;
 
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.xiaoye.common.utils.CryptoUtils;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.StringUtils;
 
@@ -26,10 +26,10 @@ import java.sql.SQLException;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
-@Data
 @ConfigurationProperties(prefix = "xiaoye.data.encryption")
 public class EncryptedTypeHandler extends BaseTypeHandler<String> implements Constants {
+
+    private static final Logger log = LoggerFactory.getLogger(EncryptedTypeHandler.class);
 
     /**
      * 默认密钥（生产环境应从配置读取）
@@ -60,6 +60,18 @@ public class EncryptedTypeHandler extends BaseTypeHandler<String> implements Con
      * 环境变量名称
      */
     private String keyEnvVariable = "XIAOYE_DATA_ENCRYPT_KEY";
+
+    // Getters and Setters
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getAlgorithm() { return algorithm; }
+    public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+    public String getKey() { return key; }
+    public void setKey(String key) { this.key = key; }
+    public String getKeySource() { return keySource; }
+    public void setKeySource(String keySource) { this.keySource = keySource; }
+    public String getKeyEnvVariable() { return keyEnvVariable; }
+    public void setKeyEnvVariable(String keyEnvVariable) { this.keyEnvVariable = keyEnvVariable; }
 
     @PostConstruct
     public void init() {

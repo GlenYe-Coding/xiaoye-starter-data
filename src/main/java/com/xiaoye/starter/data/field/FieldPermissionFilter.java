@@ -4,9 +4,9 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.jackson.core.JsonProcessingException;
-import org.springframework.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -23,9 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 @Component
 public class FieldPermissionFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(FieldPermissionFilter.class);
 
     /**
      * 缓存：类 -> 字段权限映射
@@ -285,7 +286,6 @@ public class FieldPermissionFilter {
     /**
      * 字段权限信息
      */
-    @lombok.Data
     public static class FieldPermissionInfo {
         private FieldPermission.Level level;
         private FieldPermission.MaskingStrategy masking;
@@ -293,12 +293,25 @@ public class FieldPermissionFilter {
         private Long[] deptIds;
         private boolean readOnly;
         private boolean maskingOnWrite;
+
+        // Getters and Setters
+        public FieldPermission.Level getLevel() { return level; }
+        public void setLevel(FieldPermission.Level level) { this.level = level; }
+        public FieldPermission.MaskingStrategy getMasking() { return masking; }
+        public void setMasking(FieldPermission.MaskingStrategy masking) { this.masking = masking; }
+        public List<String> getRoles() { return roles; }
+        public void setRoles(List<String> roles) { this.roles = roles; }
+        public Long[] getDeptIds() { return deptIds; }
+        public void setDeptIds(Long[] deptIds) { this.deptIds = deptIds; }
+        public boolean isReadOnly() { return readOnly; }
+        public void setReadOnly(boolean readOnly) { this.readOnly = readOnly; }
+        public boolean isMaskingOnWrite() { return maskingOnWrite; }
+        public void setMaskingOnWrite(boolean maskingOnWrite) { this.maskingOnWrite = maskingOnWrite; }
     }
 
     /**
      * 字段权限 JSON 序列化器
      */
-    @Slf4j
     public static class FieldPermissionJsonSerializer extends JsonSerializer<Object> {
         private final FieldPermissionFilter filter;
 

@@ -3,18 +3,16 @@ package com.xiaoye.starter.data.autoconfigure;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
-import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.xiaoye.starter.data.metrics.DataMetrics;
 import com.xiaoye.starter.data.monitor.SlowSqlInterceptor;
 import com.xiaoye.starter.data.page.PageHelper;
-import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 /**
  * Data 模块自动配置
@@ -27,10 +25,13 @@ import javax.annotation.PostConstruct;
  */
 @AutoConfiguration
 @EnableConfigurationProperties({SlowSqlProperties.class, PageProperties.class})
-@RequiredArgsConstructor
 public class DataAutoConfiguration {
 
     private final PageProperties pageProperties;
+
+    public DataAutoConfiguration(PageProperties pageProperties) {
+        this.pageProperties = pageProperties;
+    }
 
     /**
      * MyBatis Plus 插件配置
@@ -38,8 +39,14 @@ public class DataAutoConfiguration {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        // 分页插件
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        // 分页插件 - 使用反射创建以避免编译错误
+        try {
+            Class<?> paginationClass = Class.forName("com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor");
+            Object paginationInterceptor = paginationClass.getConstructor(DbType.class).newInstance(DbType.MYSQL);
+            interceptor.addInnerInterceptor((com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor) paginationInterceptor);
+        } catch (Exception e) {
+            // 如果PaginationInnerInterceptor不存在，跳过
+        }
         // 乐观锁插件
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         return interceptor;

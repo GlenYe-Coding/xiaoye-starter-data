@@ -72,7 +72,7 @@ public interface DataPermissionRule {
      * @return 用户ID
      */
     default Long getUserId() {
-        return DataPermissionContext.getUserId();
+        return DataPermissionContext.getCurrentUserId();
     }
 
     /**
@@ -81,7 +81,7 @@ public interface DataPermissionRule {
      * @return 租户ID
      */
     default Long getTenantId() {
-        return DataPermissionContext.getTenantId();
+        return DataPermissionContext.getCurrentTenantId();
     }
 
     /**
@@ -99,6 +99,6 @@ public interface DataPermissionRule {
      */
     default boolean isSkipCheck() {
         // 管理员跳过权限检查
-        return DataPermissionContext.isAdmin();
+        return DataPermissionContext.checkAdmin();
     }
 }

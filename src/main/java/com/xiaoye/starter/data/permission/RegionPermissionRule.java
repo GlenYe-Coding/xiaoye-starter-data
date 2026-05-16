@@ -1,6 +1,7 @@
 package com.xiaoye.starter.data.permission;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 区域级数据权限规则
@@ -11,8 +12,9 @@ import lombok.extern.slf4j.Slf4j;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 public class RegionPermissionRule implements DataPermissionRule {
+
+    private static final Logger log = LoggerFactory.getLogger(RegionPermissionRule.class);
 
     /**
      * 默认区域权限列名
@@ -41,7 +43,7 @@ public class RegionPermissionRule implements DataPermissionRule {
 
     @Override
     public String getCondition(String tableName, String alias) {
-        String[] regionCodes = DataPermissionContext.getRegionCodes();
+        String[] regionCodes = DataPermissionContext.getCurrentRegionCodes();
         if (regionCodes == null || regionCodes.length == 0) {
             return "1=0";
         }
@@ -68,16 +70,16 @@ public class RegionPermissionRule implements DataPermissionRule {
 
     @Override
     public Object[] getPermissionValues(String column) {
-        return DataPermissionContext.getRegionCodes();
+        return DataPermissionContext.getCurrentRegionCodes();
     }
 
     @Override
     public boolean isSkipCheck() {
-        if (DataPermissionContext.isAdmin()) {
+        if (DataPermissionContext.checkAdmin()) {
             return true;
         }
         // 如果用户没有区域信息，默认无权限
-        return DataPermissionContext.getRegionCodes() == null || DataPermissionContext.getRegionCodes().length == 0;
+        return DataPermissionContext.getCurrentRegionCodes() == null || DataPermissionContext.getCurrentRegionCodes().length == 0;
     }
 
     /**

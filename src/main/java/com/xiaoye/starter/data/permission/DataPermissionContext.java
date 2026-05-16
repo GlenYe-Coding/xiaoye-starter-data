@@ -1,7 +1,6 @@
 package com.xiaoye.starter.data.permission;
 
 import lombok.Data;
-
 import java.io.Serializable;
 
 /**
@@ -94,63 +93,63 @@ public class DataPermissionContext implements Serializable {
     /**
      * 获取当前用户ID
      */
-    public static Long getUserId() {
+    public static Long getCurrentUserId() {
         return get().getUserId();
     }
 
     /**
      * 获取当前租户ID
      */
-    public static Long getTenantId() {
+    public static Long getCurrentTenantId() {
         return get().getTenantId();
     }
 
     /**
      * 设置用户ID
      */
-    public static void setUserId(Long userId) {
+    public static void setCurrentUserId(Long userId) {
         get().setUserId(userId);
     }
 
     /**
      * 设置租户ID
      */
-    public static void setTenantId(Long tenantId) {
+    public static void setCurrentTenantId(Long tenantId) {
         get().setTenantId(tenantId);
     }
 
     /**
      * 设置部门ID
      */
-    public static void setDeptId(Long deptId) {
+    public static void setCurrentDeptId(Long deptId) {
         get().setDeptId(deptId);
     }
 
     /**
      * 设置区域编码
      */
-    public static void setRegionCode(String regionCode) {
+    public static void setCurrentRegionCode(String regionCode) {
         get().setRegionCode(regionCode);
     }
 
     /**
      * 是否管理员
      */
-    public static boolean isAdmin() {
+    public static boolean checkAdmin() {
         return get().isAdmin();
     }
 
     /**
      * 设置是否管理员
      */
-    public static void setAdmin(boolean admin) {
+    public static void setAdminFlag(boolean admin) {
         get().setAdmin(admin);
     }
 
     /**
      * 获取部门ID列表
      */
-    public static Long[] getDeptIds() {
+    public static Long[] getCurrentDeptIds() {
         DataPermissionContext context = get();
         if (context.getDeptIds() == null && context.getDeptId() != null) {
             return new Long[]{context.getDeptId()};
@@ -161,7 +160,7 @@ public class DataPermissionContext implements Serializable {
     /**
      * 获取区域编码列表
      */
-    public static String[] getRegionCodes() {
+    public static String[] getCurrentRegionCodes() {
         DataPermissionContext context = get();
         if (context.getRegionCodes() == null && context.getRegionCode() != null) {
             return new String[]{context.getRegionCode()};

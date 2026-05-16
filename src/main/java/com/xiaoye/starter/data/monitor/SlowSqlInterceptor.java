@@ -1,6 +1,7 @@
 package com.xiaoye.starter.data.monitor;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -19,12 +20,13 @@ import java.util.Properties;
  * - 输出警告日志供运维分析
  * </p>
  */
-@Slf4j
 @Intercepts({
     @Signature(type = Executor.class, method = "update", args = {MappedStatement.class, Object.class}),
     @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})
 })
 public class SlowSqlInterceptor implements Interceptor {
+
+    private static final Logger log = LoggerFactory.getLogger(SlowSqlInterceptor.class);
 
     /**
      * 慢SQL阈值（毫秒）

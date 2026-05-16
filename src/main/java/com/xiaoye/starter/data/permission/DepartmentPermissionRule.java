@@ -1,6 +1,7 @@
 package com.xiaoye.starter.data.permission;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 部门级数据权限规则
@@ -11,8 +12,9 @@ import lombok.extern.slf4j.Slf4j;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 public class DepartmentPermissionRule implements DataPermissionRule {
+
+    private static final Logger log = LoggerFactory.getLogger(DepartmentPermissionRule.class);
 
     /**
      * 默认部门权限列名
@@ -41,7 +43,7 @@ public class DepartmentPermissionRule implements DataPermissionRule {
 
     @Override
     public String getCondition(String tableName, String alias) {
-        Long[] deptIds = DataPermissionContext.getDeptIds();
+        Long[] deptIds = DataPermissionContext.getCurrentDeptIds();
         if (deptIds == null || deptIds.length == 0) {
             return "1=0";
         }
@@ -68,15 +70,15 @@ public class DepartmentPermissionRule implements DataPermissionRule {
 
     @Override
     public Object[] getPermissionValues(String column) {
-        return DataPermissionContext.getDeptIds();
+        return DataPermissionContext.getCurrentDeptIds();
     }
 
     @Override
     public boolean isSkipCheck() {
-        if (DataPermissionContext.isAdmin()) {
+        if (DataPermissionContext.checkAdmin()) {
             return true;
         }
         // 如果用户没有部门信息，默认无权限
-        return DataPermissionContext.getDeptIds() == null || DataPermissionContext.getDeptIds().length == 0;
+        return DataPermissionContext.getCurrentDeptIds() == null || DataPermissionContext.getCurrentDeptIds().length == 0;
     }
 }

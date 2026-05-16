@@ -1,8 +1,8 @@
 package com.xiaoye.starter.data.encryption;
 
 import com.xiaoye.common.utils.CryptoUtils;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -20,11 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
-@Data
 @Component
 @ConfigurationProperties(prefix = "xiaoye.data.datasource-crypto")
 public class DataSourcePasswordEncryptor {
+
+    private static final Logger log = LoggerFactory.getLogger(DataSourcePasswordEncryptor.class);
 
     /**
      * 是否启用
@@ -70,6 +70,22 @@ public class DataSourcePasswordEncryptor {
      * 加密结果缓存
      */
     private final Map<String, String> encryptedCache = new ConcurrentHashMap<>();
+
+    // Getters and Setters
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getAlgorithm() { return algorithm; }
+    public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+    public String getKey() { return key; }
+    public void setKey(String key) { this.key = key; }
+    public String getKeySource() { return keySource; }
+    public void setKeySource(String keySource) { this.keySource = keySource; }
+    public String getKeyEnvVariable() { return keyEnvVariable; }
+    public void setKeyEnvVariable(String keyEnvVariable) { this.keyEnvVariable = keyEnvVariable; }
+    public Map<String, String> getDatasourceKeys() { return datasourceKeys; }
+    public void setDatasourceKeys(Map<String, String> datasourceKeys) { this.datasourceKeys = datasourceKeys; }
+    public Map<String, String> getPasswordProperties() { return passwordProperties; }
+    public void setPasswordProperties(Map<String, String> passwordProperties) { this.passwordProperties = passwordProperties; }
 
     @PostConstruct
     public void init() {

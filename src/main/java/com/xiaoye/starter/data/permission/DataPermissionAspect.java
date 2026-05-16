@@ -1,7 +1,8 @@
 package com.xiaoye.starter.data.permission;
 
 import com.xiaoye.starter.data.interceptor.TenantContext;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -28,12 +29,13 @@ import java.util.Properties;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 @Intercepts({
     @Signature(type = StatementHandler.class, method = "query", args = {Statement.class, ResultHandler.class}),
     @Signature(type = StatementHandler.class, method = "prepare", args = {Connection.class, Integer.class})
 })
 public class DataPermissionAspect implements Interceptor {
+
+    private static final Logger log = LoggerFactory.getLogger(DataPermissionAspect.class);
 
     private List<DataPermissionRule> rules = new ArrayList<>();
 
@@ -62,7 +64,7 @@ public class DataPermissionAspect implements Interceptor {
         }
 
         // 检查是否为管理员
-        if (DataPermissionContext.isAdmin()) {
+        if (DataPermissionContext.checkAdmin()) {
             return invocation.proceed();
         }
 
@@ -96,9 +98,10 @@ public class DataPermissionAspect implements Interceptor {
         String modifiedSql = addPermissionCondition(originalSql, condition);
 
         if (!originalSql.equals(modifiedSql)) {
-            // 替换 BoundSql
+            // 替换 BoundSql - 使用反射获取 Configuration
+            Object config = getFieldValue(statementHandler, "configuration");
             BoundSql newBoundSql = new BoundSql(
-                boundSql.getConfiguration(),
+                (org.apache.ibatis.session.Configuration) config,
                 modifiedSql,
                 boundSql.getParameterMappings(),
                 boundSql.getParameterObject()
@@ -288,7 +291,12 @@ public class DataPermissionAspect implements Interceptor {
      */
     private DataPermission getDataPermissionAnnotation(MappedStatement ms) {
         try {
-            Class<?> mapperClass = Class.forName(ms.getNamespace());
+            // 使用反射获取 namespace
+            String namespace = (String) getFieldValue(ms, "namespace");
+            if (namespace == null) {
+                return null;
+            }
+            Class<?> mapperClass = Class.forName(namespace);
             Method method = findMethod(mapperClass, ms.getId());
             if (method != null) {
                 DataPermission annotation = method.getAnnotation(DataPermission.class);

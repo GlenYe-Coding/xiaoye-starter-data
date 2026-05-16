@@ -3,7 +3,8 @@ package com.xiaoye.starter.data.interceptor;
 import com.xiaoye.starter.data.permission.DataPermission;
 import com.xiaoye.starter.data.permission.DataPermissionContext;
 import com.xiaoye.starter.data.permission.DataPermissionRule;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -30,7 +31,6 @@ import java.util.stream.Collectors;
  * @author XiaoYe
  * @since 1.0.0
  */
-@Slf4j
 @Intercepts({
     @Signature(type = Executor.class, method = "update", args = {MappedStatement.class, Object.class}),
     @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})
@@ -315,7 +315,12 @@ public class TenantInterceptor implements Interceptor {
      */
     private DataPermission getDataPermissionAnnotation(MappedStatement ms) {
         try {
-            Class<?> mapperClass = Class.forName(ms.getNamespace());
+            // 使用反射获取 namespace
+            String namespace = (String) getFieldValue(ms, "namespace");
+            if (namespace == null) {
+                return null;
+            }
+            Class<?> mapperClass = Class.forName(namespace);
             String methodName = ms.getId().contains(".") ? ms.getId().substring(ms.getId().lastIndexOf(".") + 1) : ms.getId();
 
             for (java.lang.reflect.Method method : mapperClass.getDeclaredMethods()) {
@@ -466,6 +471,20 @@ public class TenantInterceptor implements Interceptor {
 
     public void setDataPermissionRules(List<DataPermissionRule> dataPermissionRules) {
         this.dataPermissionRules = dataPermissionRules;
+    }
+
+    /**
+     * 获取字段值
+     */
+    private Object getFieldValue(Object obj, String fieldName) {
+        try {
+            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(obj);
+        } catch (Exception e) {
+            logger.warn("Failed to get field value: {}", fieldName, e);
+            return null;
+        }
     }
 
     /**

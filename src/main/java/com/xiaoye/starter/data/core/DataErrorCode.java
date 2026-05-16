@@ -1,7 +1,6 @@
 package com.xiaoye.starter.data.core;
 
 import com.xiaoye.common.core.enums.ErrorCode;
-import lombok.Getter;
 
 /**
  * Data 模块错误码枚举
@@ -17,7 +16,6 @@ import lombok.Getter;
  * @deprecated 请使用 {@link ErrorCode}，该类仅用于向后兼容，将在后续版本中移除
  */
 @Deprecated
-@Getter
 public enum DataErrorCode {
 
     // ========== SQL 相关 31xx ==========
@@ -53,6 +51,14 @@ public enum DataErrorCode {
     DataErrorCode(String code, String message) {
         this.code = code;
         this.message = message;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
     }
 
     /**
