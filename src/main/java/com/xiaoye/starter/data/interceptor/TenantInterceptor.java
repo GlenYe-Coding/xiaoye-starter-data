@@ -1,0 +1,505 @@
+package com.xiaoye.starter.data.interceptor;
+
+import com.xiaoye.starter.data.permission.DataPermission;
+import com.xiaoye.starter.data.permission.DataPermissionContext;
+import com.xiaoye.starter.data.permission.DataPermissionRule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.apache.ibatis.executor.Executor;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.SqlSource;
+import org.apache.ibatis.plugin.*;
+import org.apache.ibatis.session.ResultHandler;
+import org.apache.ibatis.session.RowBounds;
+
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+/**
+ * 多租户数据隔离拦截器（增强版）
+ * <p>
+ * 支持三种租户隔离模式：
+ * 1. Schema 隔离模式 - 不同租户使用不同数据库 Schema
+ * 2. 字段隔离模式 - 同一表中通过 tenant_id 字段隔离（默认）
+ * 3. 组合权限模式 - 结合数据权限和租户隔离
+ * </p>
+ *
+ * @author XiaoYe
+ * @since 1.0.0
+ */
+@Intercepts({
+    @Signature(type = Executor.class, method = "update", args = {MappedStatement.class, Object.class}),
+    @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})
+})
+public class TenantInterceptor implements Interceptor {
+
+    private static final Logger logger = LoggerFactory.getLogger(TenantInterceptor.class);
+
+    /**
+     * 租户字段名
+     */
+    private String tenantColumn = "tenant_id";
+
+    /**
+     * 隔离模式
+     */
+    private IsolationMode isolationMode = IsolationMode.COLUMN;
+
+    /**
+     * 排除的表
+     */
+    private Set<String> excludeTables = new HashSet<>(Arrays.asList(
+        "sys_user", "sys_role", "sys_permission", "sys_dict", "sys_config"
+    ));
+
+    /**
+     * 排除的 Mapper ID 前缀
+     */
+    private Set<String> excludeMapperPrefixes = new HashSet<>(Arrays.asList(
+        "com.xiaoye.starter.data"
+    ));
+
+    /**
+     * 数据权限规则列表
+     */
+    private List<DataPermissionRule> dataPermissionRules = new ArrayList<>();
+
+    /**
+     * 租户隔离模式枚举
+     */
+    public enum IsolationMode {
+        /**
+         * Schema 隔离模式
+         */
+        SCHEMA,
+        /**
+         * 字段隔离模式（默认）
+         */
+        COLUMN,
+        /**
+         * 组合权限模式（租户+数据权限）
+         */
+        COMBINED
+    }
+
+    @Override
+    public Object intercept(Invocation invocation) throws Throwable {
+        Object[] args = invocation.getArgs();
+        MappedStatement ms = (MappedStatement) args[0];
+        Object param = args[1];
+
+        // 检查是否应该排除
+        if (shouldExclude(ms)) {
+            return invocation.proceed();
+        }
+
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            // 租户ID为空，不进行隔离
+            return invocation.proceed();
+        }
+
+        BoundSql boundSql = ms.getBoundSql(param);
+        String originalSql = boundSql.getSql();
+        String modifiedSql = originalSql;
+
+        switch (isolationMode) {
+            case SCHEMA:
+                modifiedSql = applySchemaIsolation(originalSql, tenantId);
+                break;
+            case COLUMN:
+                modifiedSql = addTenantCondition(originalSql, tenantId);
+                break;
+            case COMBINED:
+                modifiedSql = addTenantCondition(originalSql, tenantId);
+                // 添加数据权限条件
+                modifiedSql = addDataPermissionCondition(modifiedSql, ms);
+                break;
+        }
+
+        if (!originalSql.equals(modifiedSql)) {
+            BoundSql newBoundSql = new BoundSql(ms.getConfiguration(), modifiedSql,
+                boundSql.getParameterMappings(), param);
+            copyAdditionalParameters(boundSql, newBoundSql);
+            // 设置 _tenantId 参数以防止 SQL 注入
+            newBoundSql.setAdditionalParameter("_tenantId", tenantId);
+
+            MappedStatement newMs = newMappedStatement(ms, new BoundSqlSqlSource(newBoundSql));
+            args[0] = newMs;
+            logger.debug("Tenant isolation applied: tenantId={}, mode={}", tenantId, isolationMode);
+        }
+
+        return invocation.proceed();
+    }
+
+    /**
+     * 判断是否应该排除
+     */
+    private boolean shouldExclude(MappedStatement ms) {
+        // 检查表名
+        String resource = ms.getResource();
+        if (resource != null) {
+            for (String excludeTable : excludeTables) {
+                if (resource.toLowerCase().contains(excludeTable.toLowerCase())) {
+                    return true;
+                }
+            }
+        }
+
+        // 检查 Mapper ID
+        String mapperId = ms.getId();
+        for (String prefix : excludeMapperPrefixes) {
+            if (mapperId.startsWith(prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Schema 隔离模式
+     */
+    private String applySchemaIsolation(String sql, Long tenantId) {
+        // Schema 隔离需要在数据源层面处理，这里仅做日志记录
+        logger.debug("Schema isolation mode - tenant: {}", tenantId);
+        TenantContext.setTenantId(tenantId);
+        return sql;
+    }
+
+    /**
+     * 添加租户条件
+     */
+    private String addTenantCondition(String sql, Long tenantId) {
+        String upperSql = sql.trim().toUpperCase();
+
+        if (upperSql.startsWith("INSERT")) {
+            // INSERT语句需要在值中添加tenant_id
+            return injectTenantIdToInsert(sql, tenantId);
+        }
+
+        if (upperSql.startsWith("SELECT")) {
+            // 检查是否已经包含租户字段
+            String upperColumn = tenantColumn.toUpperCase();
+            if (!upperSql.contains(upperColumn)) {
+                return addTenantConditionToSelect(sql, tenantId);
+            }
+        }
+
+        return sql;
+    }
+
+    /**
+     * 为SELECT语句添加租户条件
+     * <p>
+     * 使用参数化查询防止SQL注入
+     * </p>
+     */
+    private String addTenantConditionToSelect(String sql, Long tenantId) {
+        String upperSql = sql.trim().toUpperCase();
+        if (upperSql.contains("WHERE")) {
+            return sql + " AND " + tenantColumn + " = #{_tenantId}";
+        } else if (upperSql.contains("GROUP BY")) {
+            int groupByIndex = upperSql.indexOf("GROUP BY");
+            return sql.substring(0, groupByIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(groupByIndex);
+        } else if (upperSql.contains("ORDER BY")) {
+            int orderByIndex = upperSql.indexOf("ORDER BY");
+            return sql.substring(0, orderByIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(orderByIndex);
+        } else if (upperSql.contains("LIMIT")) {
+            int limitIndex = upperSql.indexOf("LIMIT");
+            return sql.substring(0, limitIndex) + " WHERE " + tenantColumn + " = #{_tenantId} " + sql.substring(limitIndex);
+        } else {
+            return sql + " WHERE " + tenantColumn + " = #{_tenantId}";
+        }
+    }
+
+    /**
+     * 为INSERT语句注入tenant_id字段
+     * <p>
+     * 示例: INSERT INTO order (id, amount) VALUES (1, 100)
+     * 变为: INSERT INTO order (id, amount, tenant_id) VALUES (1, 100, #{_tenantId})
+     * </p>
+     * <p>
+     * 使用参数化查询防止SQL注入
+     * </p>
+     */
+    private String injectTenantIdToInsert(String sql, Long tenantId) {
+        // 匹配: INSERT INTO table_name (col1, col2) VALUES (val1, val2)
+        Pattern pattern = Pattern.compile(
+            "^\\s*INSERT\\s+INTO\\s+(\\w+)\\s*\\(([^)]+)\\)\\s*VALUES\\s*\\(([^)]+)\\)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(sql);
+
+        if (matcher.find()) {
+            String table = matcher.group(1);
+            String columns = matcher.group(2);
+            String values = matcher.group(3);
+
+            // 检查是否已经包含租户列
+            String upperColumns = columns.toUpperCase();
+            if (upperColumns.contains(tenantColumn.toUpperCase())) {
+                return sql; // 已经有tenant_id列，不处理
+            }
+
+            // 注入tenant_id（使用参数化占位符）
+            return String.format("INSERT INTO %s (%s, %s) VALUES (%s, #{_tenantId})",
+                table, columns, tenantColumn, values);
+        }
+
+        // 无法解析的INSERT语句，返回原SQL并记录警告
+        logger.warn("无法解析INSERT语句添加租户隔离: {}", sql);
+        return sql;
+    }
+
+    /**
+     * 添加数据权限条件
+     */
+    private String addDataPermissionCondition(String sql, MappedStatement ms) {
+        // 检查是否有数据权限注解
+        DataPermission annotation = getDataPermissionAnnotation(ms);
+        if (annotation == null || !annotation.enabled()) {
+            return sql;
+        }
+
+        // 获取匹配的规则
+        String tableName = annotation.table();
+        DataPermissionRule matchedRule = dataPermissionRules.stream()
+            .filter(rule -> rule.match(tableName))
+            .findFirst()
+            .orElse(null);
+
+        if (matchedRule == null) {
+            return sql;
+        }
+
+        String alias = getTableAlias(sql, tableName);
+        String condition = matchedRule.getCondition(tableName, alias);
+
+        if (condition == null || condition.isEmpty()) {
+            return sql;
+        }
+
+        return addCondition(sql, condition);
+    }
+
+    /**
+     * 添加条件到 SQL
+     */
+    private String addCondition(String sql, String condition) {
+        String upperSql = sql.trim().toUpperCase();
+
+        if (upperSql.contains("WHERE")) {
+            int whereIndex = upperSql.lastIndexOf("WHERE");
+            return sql.substring(0, whereIndex + 5) + " " + condition + " AND " + sql.substring(whereIndex + 5).trim();
+        } else if (upperSql.contains("GROUP BY")) {
+            int groupByIndex = upperSql.indexOf("GROUP BY");
+            return sql.substring(0, groupByIndex) + " WHERE " + condition + " " + sql.substring(groupByIndex);
+        } else if (upperSql.contains("ORDER BY")) {
+            int orderByIndex = upperSql.indexOf("ORDER BY");
+            return sql.substring(0, orderByIndex) + " WHERE " + condition + " " + sql.substring(orderByIndex);
+        } else if (upperSql.contains("LIMIT")) {
+            int limitIndex = upperSql.indexOf("LIMIT");
+            return sql.substring(0, limitIndex) + " WHERE " + condition + " " + sql.substring(limitIndex);
+        } else {
+            return sql + " WHERE " + condition;
+        }
+    }
+
+    /**
+     * 获取数据权限注解
+     */
+    private DataPermission getDataPermissionAnnotation(MappedStatement ms) {
+        try {
+            // 使用反射获取 namespace
+            String namespace = (String) getFieldValue(ms, "namespace");
+            if (namespace == null) {
+                return null;
+            }
+            Class<?> mapperClass = Class.forName(namespace);
+            String methodName = ms.getId().contains(".") ? ms.getId().substring(ms.getId().lastIndexOf(".") + 1) : ms.getId();
+
+            for (java.lang.reflect.Method method : mapperClass.getDeclaredMethods()) {
+                if (method.getName().equals(methodName)) {
+                    DataPermission annotation = method.getAnnotation(DataPermission.class);
+                    if (annotation != null) {
+                        return annotation;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.trace("Failed to get DataPermission annotation", e);
+        }
+        return null;
+    }
+
+    /**
+     * 获取表别名
+     */
+    private String getTableAlias(String sql, String tableName) {
+        String upperSql = sql.toUpperCase();
+        String upperTableName = tableName.toUpperCase();
+
+        int fromIndex = upperSql.indexOf("FROM");
+        if (fromIndex == -1) {
+            return tableName;
+        }
+
+        String fromPart = sql.substring(fromIndex);
+        int tableIndex = fromPart.toUpperCase().indexOf(upperTableName);
+
+        if (tableIndex == -1) {
+            return tableName;
+        }
+
+        int afterTable = tableIndex + upperTableName.length();
+        if (afterTable < fromPart.length()) {
+            String rest = fromPart.substring(afterTable).trim();
+            if (rest.startsWith("AS")) {
+                rest = rest.substring(2).trim();
+            }
+            int spaceIndex = rest.indexOf(' ');
+            int commaIndex = rest.indexOf(',');
+            int endIndex = rest.length();
+
+            if (spaceIndex > 0) {
+                endIndex = Math.min(endIndex, spaceIndex);
+            }
+            if (commaIndex > 0 && commaIndex < endIndex) {
+                endIndex = commaIndex;
+            }
+
+            String alias = rest.substring(0, endIndex).trim();
+            if (!alias.isEmpty() && !isKeyword(alias)) {
+                return alias;
+            }
+        }
+
+        return tableName;
+    }
+
+    /**
+     * 检查是否为 SQL 关键字
+     */
+    private boolean isKeyword(String word) {
+        String[] keywords = {"JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "WHERE",
+            "AND", "OR", "GROUP", "ORDER", "BY", "LIMIT", "OFFSET", "AS", ","};
+        for (String keyword : keywords) {
+            if (keyword.equalsIgnoreCase(word)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void copyAdditionalParameters(BoundSql source, BoundSql target) {
+        try {
+            Field additionalParametersField = BoundSql.class.getDeclaredField("additionalParameters");
+            additionalParametersField.setAccessible(true);
+            Object additionalParameters = additionalParametersField.get(source);
+            additionalParametersField.set(target, additionalParameters);
+        } catch (Exception e) {
+            logger.warn("Failed to copy additional parameters", e);
+        }
+    }
+
+    private MappedStatement newMappedStatement(MappedStatement ms, SqlSource newSqlSource) {
+        MappedStatement.Builder builder = new MappedStatement.Builder(ms.getConfiguration(), ms.getId(), newSqlSource, ms.getSqlCommandType());
+        builder.resource(ms.getResource());
+        builder.fetchSize(ms.getFetchSize());
+        builder.statementType(ms.getStatementType());
+        builder.keyGenerator(ms.getKeyGenerator());
+        if (ms.getKeyProperties() != null) {
+            builder.keyProperty(String.join(",", ms.getKeyProperties()));
+        }
+        builder.timeout(ms.getTimeout());
+        builder.parameterMap(ms.getParameterMap());
+        builder.resultMaps(ms.getResultMaps());
+        builder.resultSetType(ms.getResultSetType());
+        builder.cache(ms.getCache());
+        builder.flushCacheRequired(ms.isFlushCacheRequired());
+        builder.useCache(ms.isUseCache());
+        return builder.build();
+    }
+
+    @Override
+    public Object plugin(Object target) {
+        return Plugin.wrap(target, this);
+    }
+
+    @Override
+    public void setProperties(Properties properties) {
+        String column = properties.getProperty("tenantColumn", "tenant_id");
+        if (column != null && !column.isEmpty()) {
+            this.tenantColumn = column;
+        }
+
+        String mode = properties.getProperty("isolationMode", "COLUMN");
+        try {
+            this.isolationMode = IsolationMode.valueOf(mode.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid isolation mode: {}, using default COLUMN", mode);
+        }
+
+        String excludeTableStr = properties.getProperty("excludeTables");
+        if (excludeTableStr != null && !excludeTableStr.isEmpty()) {
+            this.excludeTables = new HashSet<>(Arrays.asList(excludeTableStr.split(",")));
+        }
+    }
+
+    // ==================== Getters and Setters ====================
+
+    public void setTenantColumn(String tenantColumn) {
+        this.tenantColumn = tenantColumn;
+    }
+
+    public void setIsolationMode(IsolationMode isolationMode) {
+        this.isolationMode = isolationMode;
+    }
+
+    public void setExcludeTables(Set<String> excludeTables) {
+        this.excludeTables = excludeTables;
+    }
+
+    public void setExcludeMapperPrefixes(Set<String> excludeMapperPrefixes) {
+        this.excludeMapperPrefixes = excludeMapperPrefixes;
+    }
+
+    public void setDataPermissionRules(List<DataPermissionRule> dataPermissionRules) {
+        this.dataPermissionRules = dataPermissionRules;
+    }
+
+    /**
+     * 获取字段值
+     */
+    private Object getFieldValue(Object obj, String fieldName) {
+        try {
+            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(obj);
+        } catch (Exception e) {
+            logger.warn("Failed to get field value: {}", fieldName, e);
+            return null;
+        }
+    }
+
+    /**
+     * 内部类：包装 BoundSql
+     */
+    static class BoundSqlSqlSource implements SqlSource {
+        private final BoundSql boundSql;
+
+        public BoundSqlSqlSource(BoundSql boundSql) {
+            this.boundSql = boundSql;
+        }
+
+        @Override
+        public BoundSql getBoundSql(Object parameterObject) {
+            return boundSql;
+        }
+    }
+}

@@ -1,0 +1,62 @@
+{
+  "groups": [
+    {
+      "name": "xiaoye.data",
+      "type": "com.xiaoye.starter.data.config.XiaoyeDataProperties",
+      "description": "数据持久化配置"
+    }
+  ],
+  "properties": [
+    {
+      "name": "xiaoye.data.enabled",
+      "type": "boolean",
+      "description": "是否启用数据模块",
+      "defaultValue": true
+    },
+    {
+      "name": "xiaoye.data.auto-fill-enabled",
+      "type": "boolean",
+      "description": "是否启用自动填充功能",
+      "defaultValue": true
+    },
+    {
+      "name": "xiaoye.data.enable-sql-log",
+      "type": "boolean",
+      "description": "是否启用 SQL 日志",
+      "defaultValue": false
+    },
+    {
+      "name": "xiaoye.data.page-type",
+      "type": "java.lang.String",
+      "description": "分页插件类型：pagehelper-PageHelper, pagination-PaginationPlus",
+      "defaultValue": "pagination"
+    },
+    {
+      "name": "xiaoye.data.logic-delete",
+      "type": "boolean",
+      "description": "是否启用逻辑删除",
+      "defaultValue": true
+    },
+    {
+      "name": "xiaoye.data.logic-delete-field",
+      "type": "java.lang.String",
+      "description": "逻辑删除字段名",
+      "defaultValue": "deleted"
+    }
+  ],
+  "hints": [
+    {
+      "name": "xiaoye.data.page-type",
+      "values": [
+        {
+          "value": "pagehelper",
+          "description": "使用 PageHelper 分页插件"
+        },
+        {
+          "value": "pagination",
+          "description": "使用 PaginationPlus 分页插件"
+        }
+      ]
+    }
+  ]
+}
